@@ -90,3 +90,7 @@
   fetch: src=/etc/ipa/ca.crt
          dest={{ inventory_dir }}/ca.crt
          flat=yes
+
+- name: Fetch kra agent pem file
+  fetch: src=/etc/httpd/alias/kra-agent.pem dest={{ inventory_dir }}/kra-agent.pem flat=yes
+ 
