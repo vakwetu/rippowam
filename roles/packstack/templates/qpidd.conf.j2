@@ -1,0 +1,26 @@
+# Configuration file for qpidd. Entries are of the form: 
+#   name=value 
+#
+# (Note: no spaces on either side of '='). Using default settings:
+# "qpidd --help" or "man qpidd" for more details.
+port=5672
+max-connections=65530
+worker-threads=17
+connection-backlog=10
+auth=yes
+realm={{ ipa_realm }}
+data-dir=/var/lib/qpidd
+
+sasl-service-name=amqp
+
+queue-patterns=exclusive
+queue-patterns=unicast
+topic-patterns=broadcast
+
+
+log-to-file=/tmp/qpidd.log
+
+
+log-enable=trace+:Protocol
+log-enable=trace+:Security
+log-enable=info+

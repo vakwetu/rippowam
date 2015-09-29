@@ -39,3 +39,50 @@ cinder_api_haproxy_port: 8777
 neutron_api_haproxy_port: 9697
 nova_api_haproxy_port: 8778
 nova_ec2_haproxy_port: 8779
+
+
+#Messaging options
+
+
+
+oslo_messaging_ampq:
+  allow_insecure_clients: True
+  broadcast_prefix: broadcast
+  group_request_prefix: unicast
+  idle_timeout: 0
+  server_request_prefix: exclusive
+  trace: False
+  sasl_mechanisms: GSSAPI
+
+# Set of options to remove: these are 
+# setup by packstack in the default section of the
+# services config files
+default_messaging_options:
+          - qpid_hostname
+          - qpid_username
+          - qpid_password
+          - qpid_heartbeat
+          - qpid_protocol
+          - qpid_tcp_nodelay
+          - qpid_port
+          - rpc_backend
+
+rabbit_messaging_options:
+        - rabbit_host
+        - rabbit_port
+        - rabbit_hosts
+        - rabbit_use_ssl
+        - rabbit_userid
+        - rabbit_password
+        - rabbit_virtual_host
+        - rabbit_ha_queues
+        - heartbeat_timeout_threshold
+        - heartbeat_rate
+
+
+ampq_conf_options:
+  topic-patterns: broadcast
+  queue-patterns: unicast
+  queue-patterns: exclusive
+
+amqp_transport_url: amqp://{{ ansible_fqdn }}
