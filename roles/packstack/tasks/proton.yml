@@ -102,7 +102,7 @@
   lineinfile: "dest=/etc/sasl2/qpidd.conf
               regexp='^keytab:.*'
               insertafter='^realm:.*'
-              line='keytab: /var/kerberos/krb5/user/993/client.keytab'"
+              line='keytab: /var/kerberos/krb5/user/{{ qpidd_uid.stdout_lines[0] }}/client.keytab'"
 
 
 - name: Create qpidd.conf file
