@@ -1,0 +1,5 @@
+[rharwood-mariadb]
+name=GSSAPI Mariadb with galera
+baseurl=http://file.bos.redhat.com/rharwood/maria-galera
+enabled=1
+gpgcheck=0

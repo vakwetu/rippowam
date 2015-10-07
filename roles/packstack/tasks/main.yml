@@ -1,9 +1,9 @@
 ---
-- name: install hacks copr repo
+- name: install GSSAPI enabled Maria repo
   copy: src={{ item }}
         dest=/etc/yum.repos.d/{{ item }}
   with_items:
-    - rharwood-mariadb-epel-7.repo
+    - rharwood-galera-maria.repo
 
 - include: ipa-pre-packstack.yml
 - include: packstack.yml

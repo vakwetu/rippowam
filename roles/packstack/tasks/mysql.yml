@@ -45,18 +45,18 @@
   notify:
     - restart mariadb
 
-- name: check for kerberos module
-  tags:
-    - mariadb
-  command: mysql -u root --execute="SHOW PLUGINS;"
-  register: mysql_modules
-  changed_when: false
+#- name: check for kerberos module
+#  tags:
+#    - mariadb
+#  command: mysql -u root --execute="SHOW PLUGINS;"
+#  register: mysql_modules
+#  changed_when: false
 
-- name: install kerberos module
-  tags:
-    - mariadb
-  command: mysql -u root --execute="INSTALL PLUGIN kerberos soname 'kerberos';"
-  when: "'kerberos' not in mysql_modules.stdout"
+#- name: install kerberos module
+#  tags:
+#    - mariadb
+#  command: mysql -u root --execute="INSTALL PLUGIN kerberos soname 'kerberos';"
+#  when: "'kerberos' not in mysql_modules.stdout"
 
 - name: install server.cnf
   tags:
