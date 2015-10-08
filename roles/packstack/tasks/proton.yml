@@ -1,0 +1,301 @@
+---
+
+- name: Install repos
+  tags:
+        - proton
+  copy: src="{{ item }}"
+        dest=/etc/yum.repos.d/{{ item }}
+  with_items:
+    - kgiusti-t-demo.repo
+  when: ansible_distribution == "RedHat" and ansible_distribution_major_version == "7"
+
+- name: install proton and messaging upgrades
+  tags:
+    - proton
+  yum: name={{ item }} state=latest
+  with_items:
+        - qpid-cpp-client
+        - qpid-cpp-server
+        - qpid-cpp-server
+        - python-qpid-proton
+        - qpid-proton-c
+        - python-pyngus
+        - python-qpid-qmf
+        - qpid-qmf
+        - python-qpid
+        - python-oslo-messaging
+
+- name: Get uid for qpidd user
+  tags:
+    - proton
+  shell:  "getent passwd qpidd | cut -d : -f 3"
+  register: qpidd_uid
+
+- name: kinit
+  tags:
+   - proton
+  shell: klist &>/dev/null || echo {{ ipa_admin_password }} | kinit admin@{{ ipa_realm }}
+  changed_when: false
+
+- name: Add amqp service principals
+  tags:
+     - proton
+
+  ipaservice: principal=amqp/{{ hostname }}@{{ ipa_realm }}
+
+- name: make keytab dir
+  tags:
+   - proton
+  command: mkdir -p  /var/kerberos/krb5/user/{{ qpidd_uid.stdout_lines[0] }}
+
+- name: make keytab dir
+  tags:
+   - proton
+  command: chown qpidd:qpidd  /var/kerberos/krb5/user/{{ qpidd_uid.stdout_lines[0] }}
+
+
+- name: Get service user keytabs
+  tags:
+   - proton
+  command:  >
+    ipa-getkeytab
+    -s ipa.{{ ipa_domain }}
+    -k /var/kerberos/krb5/user/{{ qpidd_uid.stdout_lines[0] }}/client.keytab
+    -p amqp/{{ hostname }}@{{ ipa_realm }}
+  args:
+    creates: /var/kerberos/krb5/user/{{ qpidd_uid.stdout_lines[0] }}/client.keytab
+
+- name: Change service user keytab ownership
+  tags:
+   - proton
+  file: path="/var/kerberos/krb5/user/{{ qpidd_uid.stdout_lines[0] }}/client.keytab"
+        mode=0700
+        owner=qpidd
+        group=qpidd
+
+- name: kdestroy
+  tags:
+   - proton
+  command: kdestroy
+
+
+- name: configure the qpid SASL Mechanisms
+  tags:
+      - proton
+  lineinfile: "dest=/etc/sasl2/qpidd.conf
+              regexp='^mech_list:.*'
+              line='mech_list: GSSAPI'"
+
+
+- name: configure the qpid SASL Mechanisms
+  tags:
+      - proton
+  lineinfile: "dest=/etc/sasl2/qpidd.conf
+              regexp='^realm:.*'
+              insertafter='^mech_list:.*'
+              line='realm: {{ ipa_realm }}'"
+
+
+- name: configure the qpid SASL Mechanisms
+  tags:
+      - proton
+  lineinfile: "dest=/etc/sasl2/qpidd.conf
+              regexp='^keytab:.*'
+              insertafter='^realm:.*'
+              line='keytab: /var/kerberos/krb5/user/993/client.keytab'"
+
+
+- name: Create qpidd.conf file
+  tags:
+    - proton
+  template: src=qpidd.conf.j2
+            dest=/etc/qpid/qpidd.conf
+            mode="u=rw,g=r,o=r"
+
+- name: Create ACL file
+  tags:
+    - proton
+  template: src=qpidd.acl.j2
+            dest=/etc/qpid/qpidd.acl
+            mode="u=rw,g=r,o=r"
+
+
+
+- name: Setup systemd configuration
+  tags:
+      - proton
+  command: cp /usr/lib/systemd/system/qpidd.service
+              /etc/systemd/system/
+              creates=/etc/systemd/system/qpidd.service
+
+
+- name: enable ACL via systemd
+  tags:
+      - proton
+  lineinfile: "dest=/etc/systemd/system/qpidd.service
+              regexp='=^ExecStart.*'
+              line='ExecStart=/usr/sbin/qpidd --config /etc/qpid/qpidd.conf --acl-file /etc/qpid/qpidd.acl'"
+
+
+- name: remove Keystone  messaging rabbit options
+  tags:
+      - proton
+  ini_file: state=absent
+            section=oslo_messaging_rabbit
+            dest=/etc/keystone/keystone.conf
+
+
+- name: config keystone messaging driver from oslo options
+  tags:
+      - proton
+  ini_file: section=oslo_messaging_amqp
+            dest=/etc/keystone/keystone.conf
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict: "{{ oslo_messaging_ampq }}"
+  notify:
+    - restart httpd
+
+
+- name: remove nova messaging default options
+  tags:
+      - proton
+  ini_file: section=DEFAULT
+            state=absent
+            dest=/etc/nova/nova.conf
+            option={{ item }}
+  with_items:  "{{ default_messaging_options }}"
+
+- name: set nova messaging driver
+  tags:
+      - proton
+  ini_file: section=DEFAULT
+            dest=/etc/nova/nova.conf
+            option=transport_url
+            value={{ amqp_transport_url }}
+
+
+- name: config nova messaging driver from oslo options
+  tags:
+      - proton
+  ini_file: section=oslo_messaging_amqp
+            dest=/etc/nova/nova.conf
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict: "{{ oslo_messaging_ampq }}"
+
+- name: remove neutron messaging default options
+  tags:
+      - proton
+  ini_file: section=DEFAULT
+            state=absent
+            dest=/etc/neutron/neutron.conf
+            option={{ item }}
+  with_items:  "{{ default_messaging_options }}"
+
+
+- name: set neutron messaging driver
+  tags:
+      - proton
+  ini_file: section=DEFAULT
+            dest=/etc/neutron/neutron.conf
+            option=transport_url
+            value={{ amqp_transport_url }}
+
+
+- name: config neutron messaging driver from oslo options
+  tags:
+      - proton
+  ini_file: section=oslo_messaging_amqp
+            dest=/etc/neutron/neutron.conf
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict: "{{ oslo_messaging_ampq }}"
+
+
+
+- name: remove cinder messaging default options
+  tags:
+      - proton
+  ini_file: section=DEFAULT
+            state=absent
+            dest=/etc/cinder/cinder.conf
+            option={{ item }}
+  with_items:  "{{ default_messaging_options }}"
+
+
+- name: set cinder messaging driver
+  tags:
+      - proton
+  ini_file: section=DEFAULT
+            dest=/etc/cinder/cinder.conf
+            option=transport_url
+            value={{ amqp_transport_url }}
+
+
+- name: config cinder messaging driver from oslo options
+  tags:
+      - proton
+  ini_file: section=oslo_messaging_amqp
+            dest=/etc/cinder/cinder.conf
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict: "{{ oslo_messaging_ampq }}"
+
+
+
+- name: stop openstack-services
+  tags:
+    - proton
+  service: name={{ item }} state=stopped
+  with_items:
+     - openstack-nova-api
+     - openstack-nova-compute
+     - openstack-nova-cert
+     - openstack-nova-consoleauth
+     - openstack-nova-novncproxy
+     - openstack-nova-scheduler
+     - openstack-glance-api
+     - openstack-glance-registry
+     - openstack-cinder-api
+     - openstack-cinder-scheduler
+     - openstack-cinder-volume
+     - neutron-server
+     - neutron-dhcp-agent
+     - neutron-l3-agent
+     - neutron-metadata-agent
+     - neutron-openvswitch-agent
+     - httpd
+     - openstack-nova-conductor
+     - qpidd
+
+- name: reload systemd
+  tags:
+      - proton
+  command: systemctl daemon-reload
+
+# conductor goes last
+- name: start openstack-services
+  tags:
+    - proton
+  service: name={{ item }} state=restarted
+  with_items:
+     - qpidd
+     - openstack-nova-conductor
+     - openstack-nova-api
+     - openstack-nova-compute
+     - openstack-nova-cert
+     - openstack-nova-consoleauth
+     - openstack-nova-novncproxy
+     - openstack-nova-scheduler
+     - openstack-glance-api
+     - openstack-glance-registry
+     - openstack-cinder-api
+     - openstack-cinder-scheduler
+     - openstack-cinder-volume
+     - neutron-server
+     - neutron-dhcp-agent
+     - neutron-l3-agent
+     - neutron-metadata-agent
+     - neutron-openvswitch-agent
+     - httpd

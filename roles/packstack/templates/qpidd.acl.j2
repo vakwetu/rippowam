@@ -1,0 +1,9 @@
+acl allow barbican/{{ ansible_fqdn }}@{{ ipa_realm }} all all
+acl allow cinder/{{ ansible_fqdn }}@{{ ipa_realm }} all all
+acl allow glance/{{ ansible_fqdn }}@{{ ipa_realm }} all all
+acl allow keystone/{{ ansible_fqdn }}@{{ ipa_realm }} all all
+acl allow neutron/{{ ansible_fqdn }}@{{ ipa_realm }} all all
+acl allow nova/{{ ansible_fqdn }}@{{ ipa_realm }} all all
+acl allow qpidd/{{ ansible_fqdn }}@{{ ipa_realm }} all all
+acl allow admin@{{ ipa_realm }} all all
+acl deny all all
