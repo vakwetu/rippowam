@@ -10,6 +10,13 @@
   copy: src=RH7-RHOS-7.0.repo
         dest=/etc/yum.repos.d/RH7-RHOS-7.0.repo
 
+- name: preinstall Kerberized maridb libs
+  yum: name={{ item }} state=latest
+  with_items:
+      - mariadb-libs
+
+
+
 - name: preinstall Kerberized maridb
   yum: name={{ item }} state=latest
   with_items:
@@ -18,7 +25,6 @@
       - mariadb
       - mariadb-errmsg
       - mariadb-common
-      - mariadb-libs
 
 - include: ipa-pre-packstack.yml
 - include: packstack.yml
