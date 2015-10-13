@@ -46,6 +46,22 @@
     - restart mariadb
 
 
+- name: reset my.cnf
+  tags:
+    - mariadb
+  ini_file: dest=/etc/my.cnf
+            section=mysqld
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict: "{{ my_cnf }}"
+
+
+- name: upgrade database
+  tags:
+    - mariadb
+  command: mysql_upgrade
+  ignore_errors: yes
+
 - name: install server.cnf
   tags:
     - mariadb

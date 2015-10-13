@@ -86,3 +86,9 @@ ampq_conf_options:
   queue-patterns: exclusive
 
 amqp_transport_url: amqp://{{ ansible_fqdn }}
+
+my_cnf:
+  datadir: /var/lib/mysql
+  socket: /var/lib/mysql/mysql.sock
+  log-error: /var/log/mariadb/mariadb.log
+  pid-file: /var/run/mariadb/mariadb.pid
