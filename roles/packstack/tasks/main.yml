@@ -14,19 +14,19 @@
 # but now is owned by mariadb-config.
 # Upgrading them seperately avoids a collision and
 # failure
-- name: preinstall Kerberized maridb libs
-  yum: name={{ item }} state=latest
-  with_items:
-      - mariadb-libs
+#- name: preinstall Kerberized maridb libs
+#  yum: name={{ item }} state=latest
+#  with_items:
+#      - mariadb-libs
 
-- name: preinstall Kerberized maridb
-  yum: name={{ item }} state=latest
-  with_items:
-      - mariadb-galera-server
-      - mariadb-config
-      - mariadb
-      - mariadb-errmsg
-      - mariadb-common
+#- name: preinstall Kerberized maridb
+#  yum: name={{ item }} state=latest
+#  with_items:
+#      - mariadb-galera-server
+#      - mariadb-config
+#      - mariadb
+#      - mariadb-errmsg
+#      - mariadb-common
 
 - include: ipa-pre-packstack.yml
 - include: packstack.yml
@@ -43,9 +43,10 @@
 - include: keystone-environment.yml
 - include: keystone-sssd.yml
 - include: keystone-ipsilon.yml
-- include: mariadb-kerberos.yml
-#- include: barbican.yml
-#- include: test-encrypted-volumes.yml
+#- include: mariadb-kerberos.yml
+- include: barbican.yml
+- include: test-encrypted-volumes.yml
+- include: barbican-haproxy.yml
 - include: proton.yml
 
 - name: install accrc files

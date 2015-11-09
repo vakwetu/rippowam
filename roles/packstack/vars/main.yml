@@ -39,6 +39,7 @@ cinder_api_haproxy_port: 8777
 neutron_api_haproxy_port: 9697
 nova_api_haproxy_port: 8778
 nova_ec2_haproxy_port: 8779
+barbican_haproxy_port: 9313
 
 
 #Messaging options
@@ -92,3 +93,5 @@ my_cnf:
   socket: /var/lib/mysql/mysql.sock
   log-error: /var/log/mariadb/mariadb.log
   pid-file: /var/run/mariadb/mariadb.pid
+
+nova_cinder_endpoint: https://{{ hostname }}:8776/vfoo1/%%(project_id)s

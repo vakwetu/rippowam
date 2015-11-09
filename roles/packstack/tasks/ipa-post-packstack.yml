@@ -53,9 +53,6 @@
         group={{ item.name }}
   with_items: packstack_users.results
 
-- name: copy  kra agent pem file
-  copy:  dest=/etc/barbican src={{ inventory_dir }}/kra-agent.pem
-
 - name: kdestroy
   command: kdestroy
   changed_when: false

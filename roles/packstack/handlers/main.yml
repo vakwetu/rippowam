@@ -86,3 +86,6 @@
 - name: restart qpidd
   service: name=qpidd state=restarted
 
+- name: restart barbican-api
+  sudo: yes
+  service: name=openstack-barbican-api state=restarted

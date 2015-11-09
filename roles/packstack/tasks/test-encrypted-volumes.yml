@@ -1,4 +1,6 @@
 - name: enable barbican key manager in nova
+  tags:
+    - encrypted_volumes
   ini_file: dest=/etc/nova/nova.conf
             section=keymgr
             option={{ item.key }}
@@ -6,10 +8,26 @@
   with_dict:
     api_class: "nova.keymgr.barbican.BarbicanKeyManager"
     encryption_auth_url: "https://{{ hostname }}:5000/v3"
+
+- name: enable barbican key manager in nova
+  tags:
+    - encrypted_volumes
+  ini_file: dest=/etc/nova/nova.conf
+            section=barbican
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict:
+    catalog_info: "key-manager:barbican:public"
+    endpoint_template: "http://{{ hostname }}:9311/v1"
+    os_region_name: "RegionOne"
   notify:
     - restart nova-api
+    - restart nova-compute
+    - restart nova-conductor
 
 - name: enable barbican key manager in cinder
+  tags:
+    - encrypted_volumes
   ini_file: dest=/etc/cinder/cinder.conf
             section=keymgr
             option={{ item.key }}
@@ -17,61 +35,87 @@
   with_dict:
     api_class: "cinder.keymgr.barbican.BarbicanKeyManager"
     encryption_auth_url: "https://{{ hostname }}:5000/v3"
+    encryption_api_url: "http://{{ hostname }}:9311/v1"
   notify:
     - restart cinder-api
 
 - name: list volume types
+  tags:
+    - encrypted_volumes
   command: openstack volume type list -c Name -f csv
   environment: os_env
   register: os_volume_type_list
   changed_when: false
 
 - name: list volumes
+  tags:
+    - encrypted_volumes
   command: openstack volume list -c "Display Name" -f csv
   environment: os_env
   register: os_volume_list
   changed_when: false
 
 - name: list encrypted volume types
+  tags:
+    - encrypted_volumes
   shell: cinder encryption-type-list |awk '{print $4}'
   environment: os_env_v2
   register: os_encrypted_volume_type_list
   changed_when: false
 
 - name: create volume type LUKS
+  tags:
+    - encrypted_volumes
   command: openstack volume type create LUKS
   environment: os_env
   when: '"\"LUKS\"" not in os_volume_type_list.stdout_lines'
 
-- name: create volume encryption type for LUKS
-  command: >
-    cinder encryption-type-create
-      --cipher aes-xts-plain64
-      --key_size 512  --control_location front-end
-      LUKS
-      nova.volume.encryptors.luks.LuksEncryptor
-  environment: os_env_v2
-  when: '"nova.volume.encryptors.luks.LuksEncryptor" not in os_encrypted_volume_type_list.stdout_lines'
+#- name: create volume encryption type for LUKS
+#  tags:
+#    - encrypted_volumes
+#  command: >
+#    cinder encryption-type-create
+#      --cipher aes-xts-plain64
+#      --key_size 512  --control_location front-end
+#      LUKS
+#      nova.volume.encryptors.luks.LuksEncryptor
+#  environment: os_env_v2
+#  when: '"nova.volume.encryptors.luks.LuksEncryptor" not in os_encrypted_volume_type_list.stdout_lines'
 
-- name: create encrypted volume
-  command: >
-    openstack volume create
-      --size 1
-      --type LUKS
-      encrypted_volume
-  environment: os_env
-  when: '"\"encrypted_volume\"" not in os_volume_list.stdout_lines'
+#- name: create encrypted volume
+#  tags:
+#    - encrypted_volumes
+#  command: >
+#    openstack volume create
+#      --size 1
+#      --type LUKS
+#      --image cirros
+#      encrypted_volume
+#  environment: os_env
+#  when: '"\"encrypted_volume\"" not in os_volume_list.stdout_lines'
+
+#- name: get public net id
+#  tags:
+#    - encrypted_volumes
+#  shell: openstack network list |awk '/ public / {print $2}'
+#  register: os_net_id
+#  changed_when: false
+#  environment: os_env
 
 #- name: create new server
+#  tags:
+#    - encrypted_volumes
 #  command: >
 #    openstack server create
-#      --flavor 1
-#      --image os_image_id
+#      --flavor m1.tiny
+#      --image cirros
 #      --nic "net-id={{ os_net_id }}"
 #      vm-test
 #  environment: os_env
 
 #- name: attach encrypted volume to server
+#  tags:
+#    - encrypted_volumes
 #  command: >
 #    openstack server add volume --device /dev/vdc testvm encrypted_volume
 #  environment: os_env

@@ -57,6 +57,28 @@
   notify:
     - restart neutron-api
 
+- name: neutron v3 auth for nova
+  ini_file: section=nova
+            dest=/etc/neutron/neutron.conf
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict: "{{ service_authtoken }}"
+  notify:
+    - restart neutron-api
+
+- name: neutron v3 auth for nova continued
+  ini_file: section=nova
+            dest=/etc/neutron/neutron.conf
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict:
+    identity_uri: "https://{{ hostname }}:35357"
+    admin_tenant_name: services
+    admin_user: neutron
+    admin_password: neutron
+  notify:
+   - restart neutron-api
+
 - name: nova/neutron v3 authentication
   ini_file: section=neutron
             dest=/etc/nova/nova.conf
@@ -65,6 +87,16 @@
   with_dict: "{{ service_authtoken }}"
   notify:
     - restart nova-compute
+
+- name: nova/cinder v3 authentication
+  ini_file: section=cinder
+            dest=/etc/nova/nova.conf
+            option=endpoint_template
+            backup=no
+            value="https://{{ hostname }}:8776/v1/%(project_id)s"
+  notify:
+    - restart nova-compute
+    - restart nova-api
 
 - name: remove nova v2 overrides
   ini_file: dest=/usr/share/nova/nova-dist.conf

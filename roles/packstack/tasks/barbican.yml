@@ -1,29 +1,64 @@
 ---
 - name: install barbican repo
+  tags:
+    - barbican
   copy: src=barbican.repo
         dest=/etc/yum.repos.d/barbican.repo
 
-- name: install barbican packages
+- name: install barbican package
+  tags:
+    - barbican
   yum: name={{ item }} state=installed
   with_items:
     - openstack-barbican
+
+- name: install barbican api package
+  tags:
+    - barbican
+  yum: name={{ item }} state=installed
+  with_items:
     - openstack-barbican-api
 
 - name: install barbican client package
+  tags:
+    - barbican
   yum: name={{ item }} state=installed
   with_items:
     - python-barbicanclient
 
 - name: set write permission for barbican database
+  tags:
+    - barbican
   file: path=/var/lib/barbican state=directory mode=0757
 
 - name: set ownership of /etc/barbican
+  tags:
+    - barbican
   file: path=/etc/barbican state=directory owner=barbican group=barbican
 
+- name: set ownership of /var/log/barbican
+  tags:
+    - barbican
+  file: path=/var/log/barbican state=directory owner=barbican group=barbican
+
 - name: install pki-base for Dogtag client libraries
+  tags:
+    - barbican
   yum: name=pki-base state=installed
 
+- name: copy kra agent pem file
+  tags:
+    - barbican
+  copy:  dest=/etc/barbican src={{ inventory_dir }}/kra-agent.pem
+
+- name: set ownership of pem file
+  tags:
+    - barbican
+  file: path=/etc/barbican/kra-agent.pem  owner=barbican group=barbican
+
 - name: configure dogtag_plugin in barbican-api.conf
+  tags:
+    - barbican
   ini_file: dest=/etc/barbican/barbican-api.conf
             section=dogtag_plugin
             option={{ item.key }}
@@ -34,24 +69,32 @@
     pem_path: "/etc/barbican/kra-agent.pem"
 
 - name: enable dogtag secret store in barbican-api.conf
+  tags:
+    - barbican
   ini_file: dest=/etc/barbican/barbican-api.conf
             section=secretstore
             option=enabled_secretstore_plugins
             value="dogtag_crypto"
 
 - name: enable dogtag secret cert plugin in barbican-api.conf
+  tags:
+    - barbican
   ini_file: dest=/etc/barbican/barbican-api.conf
             section=certificate
             option=enabled_certificate_plugins
             value="dogtag"
 
 - name: configure barbican-api-paste to talk to keystone
+  tags:
+    - barbican
   ini_file: dest=/etc/barbican/barbican-api-paste.ini
             section=pipeline:barbican_api
             option=pipeline
             value="keystone_authtoken context apiapp"
 
 - name: configure barbican-api-paste to talk to keystone
+  tags:
+    - barbican
   ini_file: dest=/etc/barbican/barbican-api-paste.ini
             section=filter:keystone_authtoken
             option={{ item.key }}
@@ -59,17 +102,25 @@
   with_dict:
     identity_uri: "https://{{ hostname }}:35357"
     admin_tenant_name: "services"
+  notify:
+    - restart barbican-api
 
-- name: restart barbican server
-  service: name=openstack-barbican-api state=restarted
+- name: configure barbican to start on reboot
+  tags:
+    -barbican
+  service: name=openstack-barbican-api enabled=yes
 
 - name: list users
+  tags:
+    - barbican
   command:  openstack user list -c Name -f csv
   environment: os_env
   register: os_users
   changed_when: false
 
 - name: create barbican service user
+  tags:
+    - barbican
   command: openstack user create  --password=orange --email=barbican@example.com barbican
   environment: os_env
   when: '"\"barbican\"" not in os_users.stdout_lines'
@@ -80,10 +131,22 @@
 #   when: '"\"services\"" not in os_projects.stdout_lines'
 
 - name: add admin role for barbican service user
+  tags:
+    - barbican
   command: openstack role add --user=barbican --project=services admin
   environment: os_env
 
+- name: list services
+  tags:
+    - barbican
+  command:  openstack service list -c Name -f csv
+  environment: os_env
+  register: os_services
+  changed_when: false
+
 - name: add barbican service
+  tags:
+    - barbican
   command: >
     openstack service create
       --name=barbican
@@ -92,7 +155,17 @@
   environment: os_env
   when: '"\"barbican\"" not in os_services.stdout_lines'
 
+- name: list endpoints
+  tags:
+    - barbican
+  command:  openstack endpoint list -c "Service Name" -c "Interface" -f csv
+  environment: os_env
+  register: os_endpoints
+  changed_when: false
+
 - name: add barbican public endpoint
+  tags:
+    - barbican
   command: >
     openstack endpoint create
       --region RegionOne
@@ -100,10 +173,12 @@
   environment: os_env
   when: '"\"barbican\",\"public\"" not in os_endpoints.stdout_lines'
 
-- name: add barbican internal endpoint
+- name: add barbican private endpoint
+  tags:
+    - barbican
   command: >
     openstack endpoint create
       --region RegionOne
       barbican internal http://{{ hostname }}:9311
   environment: os_env
-  when: '"\"barbican\",\"internal\"" not in os_endpoints.stdout_lines'
+  when: '"\"barbican\",\"public\"" not in os_endpoints.stdout_lines'

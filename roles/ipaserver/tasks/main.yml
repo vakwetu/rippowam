@@ -45,7 +45,7 @@
     ipa-kra-install -U
     -p {{ ipa_dm_password }}
   args:
-    creates: /etc/httpd/alias/kra-agent.pem
+    creates: /var/lib/pki/pki-tomcat/kra
   when: ansible_distribution == "RedHat"
 
 - name: enable firewalld

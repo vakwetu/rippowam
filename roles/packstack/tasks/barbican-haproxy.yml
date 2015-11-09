@@ -1,0 +1,83 @@
+- name: setup barbican haproxy
+  tags:
+    - barbican_haproxy
+  ini_file: section=DEFAULT
+            dest=/etc/barbican/barbican-api.conf
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict:
+    bind_host: 127.0.0.1
+    bind_port: "{{ barbican_haproxy_port }}"
+    host_href: "https://{{ hostname }}:9311"
+  notify:
+    - restart barbican-api
+
+- name: setup barbican haproxy in vassal
+  tags:
+    - barbican_haproxy
+  ini_file: section=uwsgi
+            dest=/etc/barbican/vassals/barbican-api.ini
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict:
+    socket: ":{{ barbican_haproxy_port }}"
+  notify:
+    - restart barbican-api
+
+- name: update barbican endpoints
+  tags:
+    - barbican_haproxy
+  command: mysql -vv -u root keystone -e "update endpoint set url=\"https://{{ hostname }}:9311\" where url like \"http://%:9311\";"
+  register: barbicanmysqlendpoint
+  changed_when: '"0 rows affected" not in barbicanmysqlendpoint.stdout'
+
+- name: check if haproxy.cfg has been updated
+  tags:
+    - barbican_haproxy
+  shell: grep barbican_api /etc/haproxy/haproxy.cfg
+  register: haproxy_updated
+  ignore_errors: yes
+
+- name: get barbican.haproxy.cfg
+  tags:
+    - barbican_haproxy
+  template: src=barbican.haproxy.cfg
+            dest=/etc/haproxy/barbican.haproxy.cfg
+
+- name: append barbican haproxy settings
+  tags:
+    - barbican_haproxy
+  shell: cat /etc/haproxy/barbican.haproxy.cfg >> /etc/haproxy/haproxy.cfg
+  notify:
+    - restart haproxy
+  when: haproxy_updated.rc != 0 
+
+- name: fixup nova config
+  tags:
+    - barbican_haproxy
+  ini_file: dest=/etc/nova/nova.conf
+            section=barbican
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict:
+    catalog_info: "key-manager:barbican:public"
+    endpoint_template: "https://{{ hostname }}:9311/v1"
+    os_region_name: "RegionOne"
+  notify:
+    - restart nova-api
+    - restart nova-compute
+    - restart nova-conductor
+
+- name: fixup cinder config
+  tags:
+    - barbican_haproxy
+  ini_file: dest=/etc/cinder/cinder.conf
+            section=keymgr
+            option={{ item.key }}
+            value={{ item.value }}
+  with_dict:
+    api_class: "cinder.keymgr.barbican.BarbicanKeyManager"
+    encryption_auth_url: "https://{{ hostname }}:5000/v3"
+    encryption_api_url: "https://{{ hostname }}:9311/v1"
+  notify:
+    - restart cinder-api
